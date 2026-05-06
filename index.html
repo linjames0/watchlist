@@ -6,7 +6,7 @@
 <title>AI Infrastructure Watchlist</title>
 <style>
   :root { color-scheme: light; }
-  html, body { margin: 0; padding: 0; background: #f3ead7; }
+  html, body { margin: 0; padding: 0; background: #fbf6e9; }
   body {
     font-family: ui-serif, Georgia, "Times New Roman", serif;
     color: #1a1714;
@@ -14,7 +14,7 @@
     line-height: 1.4;
   }
   .wrap {
-    background: #f3ead7;
+    background: #fbf6e9;
     padding: 22px 26px 32px;
     min-height: 100vh;
     box-sizing: border-box;
@@ -55,12 +55,12 @@
     background: transparent; border: 1px solid #1a1714; color: #1a1714;
     font: inherit; padding: 4px 10px; cursor: pointer; border-radius: 0;
   }
-  .toolbar button:hover { background: #1a1714; color: #f3ead7; }
+  .toolbar button:hover { background: #1a1714; color: #fbf6e9; }
 
   .col-wrap { position: relative; display: inline-block; }
   .colmenu {
     position: absolute; top: 26px; left: 50%; transform: translateX(-50%);
-    background: #f3ead7; border: 1px solid #1a1714;
+    background: #fbf6e9; border: 1px solid #1a1714;
     padding: 6px 10px; z-index: 10; display: none; white-space: nowrap;
   }
   .colmenu.open { display: block; }
@@ -85,7 +85,7 @@
 
   th {
     font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
-    background: #ebe0c7; cursor: pointer; user-select: none;
+    background: #f1e8d2; cursor: pointer; user-select: none;
   }
   th .arrow { font-size: 9px; opacity: 0.5; margin-left: 4px; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-sans-serif, system-ui, sans-serif; min-width: 78px; }
@@ -104,14 +104,20 @@
     appearance: none; -webkit-appearance: none;
   }
   td select:focus { background: #fff8e8; }
-  td.tag-buy   { color: #2f6b3a; }
-  td.tag-sell  { color: #8a2f2a; }
-  td.tag-long  { color: #2f6b3a; }
-  td.tag-short { color: #8a2f2a; }
+  td.tag-buy   { background: #dde9cf; color: #2a5e2f; }
+  td.tag-sell  { background: #f1d6d3; color: #7a2924; }
+  td.tag-long  { background: #dde9cf; color: #2a5e2f; }
+  td.tag-short { background: #f1d6d3; color: #7a2924; }
+  td.tag-buy select, td.tag-sell select, td.tag-long select, td.tag-short select { color: inherit; }
+  /* keep tagged backgrounds even on row hover */
+  tbody tr:hover td.tag-buy   { background: #d3e3c4; }
+  tbody tr:hover td.tag-sell  { background: #ecccc8; }
+  tbody tr:hover td.tag-long  { background: #d3e3c4; }
+  tbody tr:hover td.tag-short { background: #ecccc8; }
 
   /* lock state */
   body.locked td[contenteditable="false"]:not(.num) { cursor: default; }
-  body:not(.locked) #lockBtn { background: #1a1714; color: #f3ead7; }
+  body:not(.locked) #lockBtn { background: #1a1714; color: #fbf6e9; }
   #syncStatus { font-size: 10px; color: #8a7d65; }
 
   /* modal */
@@ -122,7 +128,7 @@
   }
   .modal-overlay.open { display: flex; }
   .modal {
-    background: #f3ead7; border: 1px solid #1a1714;
+    background: #fbf6e9; border: 1px solid #1a1714;
     width: 420px; max-width: calc(100vw - 40px);
     padding: 22px 24px 18px; box-shadow: 0 10px 40px rgba(26,23,20,0.25);
   }
@@ -158,7 +164,7 @@
     background: transparent; border: 1px solid #1a1714; color: #1a1714;
     font-size: 11px; padding: 5px 14px; cursor: pointer; border-radius: 0;
   }
-  .modal .actions button[type="submit"] { background: #1a1714; color: #f3ead7; }
+  .modal .actions button[type="submit"] { background: #1a1714; color: #fbf6e9; }
   .modal .actions button:hover { opacity: 0.85; }
   .modal .hint { font-size: 10px; color: #8a7d65; margin: 4px 0 0; font-family: ui-sans-serif, system-ui, sans-serif; text-transform: none; letter-spacing: 0; }
   .modal .err { color: #8a2f2a; }
