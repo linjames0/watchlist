@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Infrastructure Watchlist</title>
+<style>
+  :root { color-scheme: light; }
+  html, body { margin: 0; padding: 0; background: #f3ead7; }
+  body {
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    color: #1a1714;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .wrap {
+    background: #f3ead7;
+    padding: 22px 26px 32px;
+    min-height: 100vh;
+    box-sizing: border-box;
+    max-width: 1500px;
+    margin: 0 auto;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid #1a1714;
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+  h1 { font-size: 18px; font-weight: 500; margin: 0; letter-spacing: 0.3px; }
+  .meta { font-size: 11px; color: #5a4f3d; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .meta .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #6b8f4a; margin-right: 4px; vertical-align: 1px; }
+  .meta .dot.loading { background: #c0903a; animation: pulse 1.2s infinite; }
+  .meta .dot.err { background: #a94442; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 11px;
+    color: #5a4f3d;
+    position: relative;
+    flex-wrap: wrap;
+  }
+  .toolbar input {
+    background: transparent; border: 1px solid #1a1714; color: #1a1714;
+    font: inherit; padding: 4px 8px; width: 220px; border-radius: 0; outline: none;
+  }
+  .toolbar button {
+    background: transparent; border: 1px solid #1a1714; color: #1a1714;
+    font: inherit; padding: 4px 10px; cursor: pointer; border-radius: 0;
+  }
+  .toolbar button:hover { background: #1a1714; color: #f3ead7; }
+
+  .colmenu {
+    position: absolute; top: 30px; background: #f3ead7; border: 1px solid #1a1714;
+    padding: 8px 12px; z-index: 10; display: none; min-width: 160px;
+  }
+  .colmenu.open { display: block; }
+  .colmenu label {
+    display: flex; align-items: center; gap: 8px; padding: 3px 0;
+    cursor: pointer; font-size: 11px; color: #1a1714;
+  }
+  .colmenu input[type="checkbox"] { accent-color: #1a1714; }
+
+  .table-scroll { overflow-x: auto; border: 1px solid #1a1714; }
+  table { width: 100%; border-collapse: collapse; background: transparent; table-layout: auto; }
+  th, td {
+    border: 1px solid #1a1714; padding: 6px 10px; text-align: left;
+    vertical-align: middle; white-space: nowrap;
+  }
+  th:first-child, td:first-child { border-left: none; }
+  th:last-child, td:last-child { border-right: none; }
+  thead tr th { border-top: none; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  th {
+    font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    background: #ebe0c7; cursor: pointer; user-select: none;
+  }
+  th .arrow { font-size: 9px; opacity: 0.5; margin-left: 4px; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-sans-serif, system-ui, sans-serif; min-width: 78px; }
+  td.notes { white-space: normal; min-width: 160px; max-width: 280px; }
+  td.muted { color: #8a7d65; }
+  td[contenteditable="true"]:focus { outline: none; background: #fff8e8; box-shadow: inset 0 0 0 1px #1a1714; }
+  tbody tr:hover td { background: rgba(26,23,20,0.03); }
+  td.up { color: #2f6b3a; }
+  td.down { color: #8a2f2a; }
+  td.edited::after { content: "•"; color: #c0903a; margin-left: 4px; font-weight: bold; }
+
+  td select {
+    background: transparent; border: none; font: inherit; color: inherit;
+    padding: 0; margin: 0; width: 100%; outline: none; cursor: pointer;
+    font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px;
+    appearance: none; -webkit-appearance: none;
+  }
+  td select:focus { background: #fff8e8; }
+  td.tag-buy   { color: #2f6b3a; }
+  td.tag-sell  { color: #8a2f2a; }
+  td.tag-long  { color: #2f6b3a; }
+  td.tag-short { color: #8a2f2a; }
+
+  footer {
+    margin-top: 14px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10px;
+    color: #8a7d65; border-top: 1px solid #1a1714; padding-top: 8px;
+    display: flex; justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AI Infrastructure Watchlist</h1>
+    <div class="meta"><span class="dot loading" id="dot"></span><span id="status">loading…</span></div>
+  </header>
+
+  <div class="toolbar">
+    <input id="filter" placeholder="filter by ticker, name, industry…" />
+    <button id="colsBtn">columns ▾</button>
+    <div class="colmenu" id="colmenu"></div>
+    <button id="reload" title="Refresh data">reload</button>
+    <button id="resetEdits" title="Clear all cell edits">reset edits</button>
+    <span style="flex:1"></span>
+    <span id="count"></span>
+  </div>
+
+  <div class="table-scroll">
+    <table id="grid">
+      <thead><tr id="headRow"></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    <span>cells are editable — edits persist locally. % columns refresh from market data.</span>
+    <span>data: massive.com</span>
+  </footer>
+</div>
+
+<script>
+const COLUMNS = [
+  { key: "company",  label: "Company",  type: "text" },
+  { key: "ticker",   label: "Ticker",   type: "text" },
+  { key: "exchange", label: "Exchange", type: "text" },
+  { key: "industry", label: "Industry", type: "text" },
+  { key: "notes",    label: "Notes",    type: "notes" },
+  { key: "trade",    label: "Buy / Sell",   type: "select", options: ["", "Buy", "Sell"] },
+  { key: "position", label: "Short / Long", type: "select", options: ["", "Long", "Short"] },
+  { key: "d1", label: "1 Day",    type: "pct" },
+  { key: "d5", label: "5 Day",    type: "pct" },
+  { key: "m1", label: "1 Month",  type: "pct" },
+  { key: "m6", label: "6 Months", type: "pct" },
+  { key: "y1", label: "1 Year",   type: "pct" },
+];
+
+const SEED = [
+  ["Apple","AAPL","NASDAQ","Consumer Electronics"],
+  ["Microsoft","MSFT","NASDAQ","Cloud / Software / AI"],
+  ["Alphabet","GOOGL","NASDAQ","Search / Cloud / AI"],
+  ["Amazon","AMZN","NASDAQ","E-commerce / Cloud"],
+  ["Nvidia","NVDA","NASDAQ","AI Accelerators"],
+  ["Meta","META","NASDAQ","Social / AI"],
+  ["Tesla","TSLA","NASDAQ","EV / AI"],
+  ["Oracle","ORCL","NYSE","Database / Cloud"],
+  ["AMD","AMD","NASDAQ","Semiconductors"],
+  ["Intel","INTC","NASDAQ","Semiconductors / Foundry"],
+  ["Broadcom","AVGO","NASDAQ","Custom ASICs / Networking"],
+  ["Marvell","MRVL","NASDAQ","Custom ASICs / DSP"],
+  ["ARM Holdings","ARM","NASDAQ","Semiconductor IP"],
+  ["TSMC","TSM","NYSE ADR","Semiconductor Foundry"],
+  ["ASML","ASML","NASDAQ","Semiconductor Equipment"],
+  ["Micron","MU","NASDAQ","Memory"],
+  ["Western Digital","WDC","NYSE","HDD Storage"],
+  ["Seagate","STX","NASDAQ","HDD Storage"],
+  ["Sandisk","SNDK","NASDAQ","NAND / SSD"],
+  ["GSI Technology","GSIT","NASDAQ","SRAM"],
+  ["Lumentum","LITE","NASDAQ","Photonics"],
+  ["Coherent Corp","COHR","NYSE","Photonics"],
+  ["Arista Networks","ANET","NYSE","Networking"],
+  ["Cisco Systems","CSCO","NASDAQ","Networking / Software"],
+  ["Astera Labs","ALAB","NASDAQ","Interconnect Silicon"],
+  ["Super Micro","SMCI","NASDAQ","AI Servers"],
+  ["Dell Technologies","DELL","NYSE","Servers / PCs"],
+  ["HPE","HPE","NYSE","Servers / Networking"],
+  ["Vertiv","VRT","NYSE","Power & Cooling"],
+  ["Eaton","ETN","NYSE","Electrical Infrastructure"],
+  ["Generac","GNRC","NYSE","Power Backup"],
+  ["Bloom Energy","BE","NYSE","Fuel Cells"],
+  ["GE Vernova","GEV","NYSE","Power Generation"],
+  ["Constellation Energy","CEG","NASDAQ","Nuclear Utility"],
+  ["Vistra","VST","NYSE","Nuclear / Gas Utility"],
+  ["Public Service Enterprise","PEG","NYSE","Utility"],
+  ["Oklo","OKLO","NYSE","Small Modular Reactor"],
+  ["NuScale","SMR","NYSE","Small Modular Reactor"],
+  ["CoreWeave","CRWV","NASDAQ","GPU Cloud"],
+  ["Nebius","NBIS","NASDAQ","GPU Cloud"],
+  ["Synopsys","SNPS","NASDAQ","EDA / Chip Design"],
+  ["Cadence","CDNS","NASDAQ","EDA / Chip Design"],
+  ["Palantir","PLTR","NASDAQ","Enterprise Software"],
+  ["Core Scientific","CORZ","NASDAQ","Crypto / AI Hosting"],
+  ["Cipher Mining","CIFR","NASDAQ","Crypto / AI Hosting"],
+  ["IREN","IREN","NASDAQ","Crypto / AI Hosting"],
+  ["Riot Platforms","RIOT","NASDAQ","Crypto / AI Hosting"],
+  ["Bitdeer","BTDR","NASDAQ","Crypto / AI Hosting"],
+  ["Applied Digital","APLD","NASDAQ","Data Center Hosting"],
+  ["VanEck Semiconductor ETF","SMH","NASDAQ","Semiconductor ETF"],
+  ["Infosys","INFY","NYSE ADR","IT Services"],
+];
+
+const STORAGE_KEY = "watchlist_edits_v2";
+const VISKEY = "watchlist_visible_cols_v2";
+const HIST_CACHE_KEY = "watchlist_hist_v1";
+
+let rows = SEED.map((r,i) => ({
+  id: i, company: r[0], ticker: r[1], exchange: r[2], industry: r[3],
+  notes: "", trade: "", position: "",
+  d1: null, d5: null, m1: null, m6: null, y1: null,
+  _price: null, loading: true,
+}));
+
+let edits = {};
+try { edits = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch {}
+function saveEdits(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(edits)); } catch {} }
+function getEdit(rowId, col){ return edits[rowId+":"+col]; }
+function setEdit(rowId, col, val){
+  const key = rowId+":"+col;
+  if (val === undefined || val === null || val === "") delete edits[key];
+  else edits[key] = val;
+  saveEdits();
+}
+
+let visibleCols = new Set(COLUMNS.map(c => c.key));
+try {
+  const saved = JSON.parse(localStorage.getItem(VISKEY) || "null");
+  if (Array.isArray(saved)) visibleCols = new Set(saved);
+} catch {}
+function saveVis(){ try { localStorage.setItem(VISKEY, JSON.stringify([...visibleCols])); } catch {} }
+
+let sortKey = null, sortDir = 1;
+let filterText = "";
+
+const $ = (s) => document.querySelector(s);
+const tbody = $("#rows");
+const headRow = $("#headRow");
+const status = $("#status");
+const dot = $("#dot");
+
+function fmtPct(v){
+  if (v === null || v === undefined || isNaN(v)) return "—";
+  const sign = v > 0 ? "+" : "";
+  return sign + Number(v).toFixed(2) + "%";
+}
+function pctClass(v){
+  if (v === null || v === undefined || isNaN(v)) return "muted";
+  if (v > 0) return "up"; if (v < 0) return "down"; return "";
+}
+function getCellValue(row, col){
+  const e = getEdit(row.id, col);
+  if (e !== undefined) return e;
+  return row[col];
+}
+function activeColumns(){ return COLUMNS.filter(c => visibleCols.has(c.key)); }
+
+function renderHead(){
+  headRow.innerHTML = "";
+  for (const c of activeColumns()){
+    const th = document.createElement("th");
+    th.dataset.sort = c.key;
+    if (c.type === "pct") th.classList.add("num");
+    th.innerHTML = c.label + '<span class="arrow"></span>';
+    th.addEventListener("click", () => {
+      if (sortKey === c.key) sortDir = -sortDir;
+      else { sortKey = c.key; sortDir = 1; }
+      render();
+    });
+    headRow.appendChild(th);
+  }
+}
+
+function render(){
+  renderHead();
+  const q = filterText.trim().toLowerCase();
+  const filtered = rows.filter(r => {
+    if (!q) return true;
+    return [r.company, r.ticker, r.exchange, r.industry, getCellValue(r,"notes")]
+      .some(x => (x||"").toString().toLowerCase().includes(q));
+  });
+  if (sortKey){
+    const colDef = COLUMNS.find(c => c.key === sortKey);
+    const isNum = colDef && colDef.type === "pct";
+    filtered.sort((a,b) => {
+      let av = getCellValue(a, sortKey);
+      let bv = getCellValue(b, sortKey);
+      if (isNum){
+        av = (av === null || av === undefined || av === "") ? -Infinity : parseFloat(av);
+        bv = (bv === null || bv === undefined || bv === "") ? -Infinity : parseFloat(bv);
+      } else {
+        av = (av||"").toString().toLowerCase();
+        bv = (bv||"").toString().toLowerCase();
+      }
+      if (av < bv) return -1*sortDir;
+      if (av > bv) return  1*sortDir;
+      return 0;
+    });
+  }
+  tbody.innerHTML = "";
+  for (const r of filtered){
+    const tr = document.createElement("tr");
+    tr.dataset.id = r.id;
+    for (const c of activeColumns()){
+      const td = document.createElement("td");
+      td.dataset.col = c.key;
+      const raw = getCellValue(r, c.key);
+      const editedFlag = getEdit(r.id, c.key) !== undefined;
+      if (c.type === "pct"){
+        td.classList.add("num", "readonly");
+        td.contentEditable = "false";
+        td.tabIndex = -1;
+        if (r.loading){ td.textContent = "…"; td.classList.add("muted"); }
+        else { td.textContent = fmtPct(raw); td.classList.add(pctClass(raw)); }
+      } else if (c.type === "select"){
+        const sel = document.createElement("select");
+        for (const opt of c.options){
+          const o = document.createElement("option");
+          o.value = opt; o.textContent = opt || "—";
+          if ((raw || "") === opt) o.selected = true;
+          sel.appendChild(o);
+        }
+        sel.addEventListener("change", () => { setEdit(r.id, c.key, sel.value); render(); });
+        td.appendChild(sel);
+        const v = (raw || "").toLowerCase();
+        if (v) td.classList.add("tag-" + v);
+      } else if (c.type === "notes"){
+        td.classList.add("notes"); td.contentEditable = "true"; td.textContent = raw || "";
+      } else {
+        td.contentEditable = "true"; td.textContent = raw || "";
+      }
+      if (editedFlag && c.type !== "select" && c.type !== "pct") td.classList.add("edited");
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  $("#count").textContent = filtered.length + " rows";
+  document.querySelectorAll("th").forEach(th => {
+    const a = th.querySelector(".arrow");
+    if (!a) return;
+    a.textContent = (th.dataset.sort === sortKey) ? (sortDir === 1 ? "▲" : "▼") : "";
+  });
+}
+
+tbody.addEventListener("focusin", (e) => {
+  const td = e.target.closest("td");
+  if (!td || td.contentEditable !== "true") return;
+  td.dataset._before = td.textContent;
+});
+tbody.addEventListener("focusout", (e) => {
+  const td = e.target.closest("td");
+  if (!td || td.contentEditable !== "true") return;
+  const before = td.dataset._before;
+  const now = td.textContent.trim();
+  if (now === before) return;
+  const tr = td.closest("tr");
+  const id = parseInt(tr.dataset.id, 10);
+  setEdit(id, td.dataset.col, now);
+  td.classList.toggle("edited", true);
+});
+tbody.addEventListener("keydown", (e) => {
+  const td = e.target.closest("td");
+  if (!td || td.contentEditable !== "true") return;
+  if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); td.blur(); }
+  if (e.key === "Escape"){
+    e.preventDefault();
+    if (td.dataset._before !== undefined) td.textContent = td.dataset._before;
+    td.blur();
+  }
+});
+$("#filter").addEventListener("input", (e) => { filterText = e.target.value; render(); });
+$("#resetEdits").addEventListener("click", () => {
+  if (!confirm("Clear all cell edits (notes, buy/sell, short/long, etc.)?")) return;
+  edits = {}; saveEdits(); render();
+});
+$("#reload").addEventListener("click", () => {
+  localStorage.removeItem(HIST_CACHE_KEY);
+  location.reload();
+});
+
+function buildColMenu(){
+  const m = $("#colmenu");
+  m.innerHTML = "";
+  for (const c of COLUMNS){
+    const lbl = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = visibleCols.has(c.key);
+    cb.addEventListener("change", () => {
+      if (cb.checked) visibleCols.add(c.key); else visibleCols.delete(c.key);
+      saveVis(); render();
+    });
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(c.label));
+    m.appendChild(lbl);
+  }
+}
+$("#colsBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  $("#colmenu").classList.toggle("open");
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#colmenu") && e.target.id !== "colsBtn"){
+    $("#colmenu").classList.remove("open");
+  }
+});
+
+// ---- data layer ----
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function callApi(path, params = {}){
+  const qs = new URLSearchParams();
+  qs.set("path", path);
+  for (const [k, v] of Object.entries(params)){
+    if (v === undefined || v === null) continue;
+    qs.set(k, String(v));
+  }
+  const res = await fetch("/api/proxy?" + qs.toString());
+  if (!res.ok){
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+  }
+  return res.json();
+}
+
+function daysAgoIso(n){
+  const d = new Date(); d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0,10);
+}
+function todayIso(){ return new Date().toISOString().slice(0,10); }
+
+function pickSnapshotPctPrice(item){
+  // Be liberal in what we accept across snapshot response shapes.
+  const session = item.session || item.day || {};
+  const pct = (typeof session.change_percent === "number") ? session.change_percent
+            : (typeof session.change_perc === "number") ? session.change_perc
+            : (typeof item.todays_change_perc === "number") ? item.todays_change_perc
+            : (typeof session.session_change_percent === "number") ? session.session_change_percent
+            : null;
+  const price = (typeof session.price === "number") ? session.price
+              : (typeof session.close === "number") ? session.close
+              : (typeof item.last_trade === "object" && item.last_trade && typeof item.last_trade.price === "number") ? item.last_trade.price
+              : (typeof item.lastTrade === "object" && item.lastTrade && typeof item.lastTrade.p === "number") ? item.lastTrade.p
+              : null;
+  return { pct, price };
+}
+
+async function fetchSnapshot(tickers){
+  const json = await callApi("/v3/snapshot", { "ticker.any_of": tickers.join(",") });
+  const out = {};
+  const arr = json.results || json.data || [];
+  for (const item of arr){
+    const t = item.ticker || item.symbol;
+    if (!t) continue;
+    const { pct, price } = pickSnapshotPctPrice(item);
+    out[t] = { d1: pct, price };
+  }
+  return out;
+}
+
+async function fetchBarsWithRetry(ticker, maxAttempts = 4){
+  const from = daysAgoIso(400);
+  const to = todayIso();
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++){
+    try {
+      const json = await callApi(
+        `/v2/aggs/ticker/${encodeURIComponent(ticker)}/range/1/day/${from}/${to}`,
+        { adjusted: "true", sort: "asc", limit: "500" }
+      );
+      const arr = json.results || [];
+      const bars = arr.map(b => ({ t: Number(b.t), c: Number(b.c) }))
+                      .filter(b => b.c && !isNaN(b.t));
+      if (bars.length) return bars;
+      if (attempt < maxAttempts) await sleep(400 * attempt);
+    } catch (e){
+      lastErr = e;
+      if (attempt < maxAttempts) await sleep(500 * Math.pow(3, attempt - 1));
+    }
+  }
+  if (lastErr) console.warn(`bars failed for ${ticker} after ${maxAttempts} attempts`, lastErr);
+  return [];
+}
+
+function pctChangeOverDays(bars, days){
+  if (!bars || bars.length < 2) return null;
+  const last = bars[bars.length-1];
+  const targetT = last.t - days*24*3600*1000;
+  let ref = null;
+  for (let i = bars.length-2; i >= 0; i--){
+    if (bars[i].t <= targetT){ ref = bars[i]; break; }
+  }
+  if (!ref) ref = bars[0];
+  if (!ref.c || !last.c) return null;
+  return ((last.c - ref.c) / ref.c) * 100;
+}
+
+function loadHistCache(){
+  try { return JSON.parse(localStorage.getItem(HIST_CACHE_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveHistCache(c){ try { localStorage.setItem(HIST_CACHE_KEY, JSON.stringify(c)); } catch {} }
+
+async function load(){
+  const tickers = SEED.map(r => r[1]);
+
+  status.textContent = "fetching current prices…";
+  let snap = {};
+  try { snap = await fetchSnapshot(tickers); }
+  catch (e){ console.warn("snapshot failed", e); }
+  for (const r of rows){
+    const s = snap[r.ticker];
+    if (s){ r.d1 = s.d1; r._price = s.price; }
+  }
+  render();
+
+  const today = todayIso();
+  const cache = loadHistCache();
+  const cachedToday = cache.date === today ? (cache.data || {}) : {};
+  const needFetch = [];
+  for (const t of tickers){
+    if (cachedToday[t]){
+      const r = rows.find(x => x.ticker === t);
+      if (r){
+        const v = cachedToday[t];
+        r.d5 = v.d5; r.m1 = v.m1; r.m6 = v.m6; r.y1 = v.y1;
+      }
+    } else {
+      needFetch.push(t);
+    }
+  }
+  for (const r of rows){ if (cachedToday[r.ticker]) r.loading = false; }
+  render();
+
+  if (needFetch.length === 0){
+    dot.classList.remove("loading");
+    const now = new Date();
+    status.textContent = `updated ${now.toLocaleString([], { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" })} (cached)`;
+    return;
+  }
+
+  const fresh = { ...cachedToday };
+  const CHUNK = 3;
+  let done = 0;
+  for (let i = 0; i < needFetch.length; i += CHUNK){
+    const batch = needFetch.slice(i, i + CHUNK);
+    await Promise.all(batch.map(async (t) => {
+      const r = rows.find(x => x.ticker === t);
+      const bars = await fetchBarsWithRetry(t);
+      if (r){
+        if (bars.length){
+          if (r.d1 === null && bars.length >= 2){
+            const last = bars[bars.length-1].c;
+            const prev = bars[bars.length-2].c;
+            if (last && prev) r.d1 = ((last - prev) / prev) * 100;
+          }
+          r.d5 = pctChangeOverDays(bars, 7);
+          r.m1 = pctChangeOverDays(bars, 30);
+          r.m6 = pctChangeOverDays(bars, 182);
+          r.y1 = pctChangeOverDays(bars, 365);
+          fresh[t] = { d5: r.d5, m1: r.m1, m6: r.m6, y1: r.y1 };
+        }
+        r.loading = false;
+      }
+      done++;
+    }));
+    status.textContent = `loading history… ${done}/${needFetch.length}`;
+    render();
+    saveHistCache({ date: today, data: fresh });
+    if (i + CHUNK < needFetch.length) await sleep(220);
+  }
+
+  // healing passes — keep retrying any ticker missing any of d1/d5/m1/m6/y1.
+  // up to 3 rounds; some values may be legitimately null (e.g. recent IPOs lack 1y history).
+  for (let round = 1; round <= 3; round++){
+    const incomplete = rows.filter(r =>
+      r.d1 === null || r.d5 === null || r.m1 === null || r.m6 === null || r.y1 === null
+    );
+    if (!incomplete.length) break;
+    status.textContent = `healing pass ${round}: ${incomplete.length} tickers…`;
+    await sleep(600 * round);
+    for (let i = 0; i < incomplete.length; i += 3){
+      const batch = incomplete.slice(i, i + 3);
+      await Promise.all(batch.map(async (r) => {
+        const bars = await fetchBarsWithRetry(r.ticker, 4);
+        if (!bars.length) return;
+        if (r.d1 === null && bars.length >= 2){
+          const last = bars[bars.length-1].c;
+          const prev = bars[bars.length-2].c;
+          if (last && prev) r.d1 = ((last - prev) / prev) * 100;
+        }
+        if (r.d5 === null) r.d5 = pctChangeOverDays(bars, 7);
+        if (r.m1 === null) r.m1 = pctChangeOverDays(bars, 30);
+        if (r.m6 === null) r.m6 = pctChangeOverDays(bars, 182);
+        if (r.y1 === null) r.y1 = pctChangeOverDays(bars, 365);
+        fresh[r.ticker] = { d5: r.d5, m1: r.m1, m6: r.m6, y1: r.y1 };
+      }));
+      saveHistCache({ date: today, data: fresh });
+      render();
+      await sleep(220);
+    }
+  }
+
+  for (const r of rows) r.loading = false;
+  dot.classList.remove("loading");
+  const now = new Date();
+  status.textContent = `updated ${now.toLocaleString([], { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" })}`;
+  render();
+}
+
+buildColMenu();
+render();
+load().catch(e => {
+  console.error(e);
+  dot.classList.remove("loading"); dot.classList.add("err");
+  status.textContent = "error: " + (e.message || e);
+});
+</script>
+</body>
+</html>
