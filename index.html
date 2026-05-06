@@ -57,16 +57,20 @@
   }
   .toolbar button:hover { background: #1a1714; color: #f3ead7; }
 
+  .col-wrap { position: relative; display: inline-block; }
   .colmenu {
-    position: absolute; top: 30px; background: #f3ead7; border: 1px solid #1a1714;
-    padding: 8px 12px; z-index: 10; display: none; min-width: 160px;
+    position: absolute; top: 26px; left: 50%; transform: translateX(-50%);
+    background: #f3ead7; border: 1px solid #1a1714;
+    padding: 6px 10px; z-index: 10; display: none; white-space: nowrap;
   }
   .colmenu.open { display: block; }
   .colmenu label {
-    display: flex; align-items: center; gap: 8px; padding: 3px 0;
+    display: flex; align-items: center; gap: 6px; padding: 2px 0;
     cursor: pointer; font-size: 11px; color: #1a1714;
   }
-  .colmenu input[type="checkbox"] { accent-color: #1a1714; }
+  .colmenu input[type="checkbox"] {
+    accent-color: #1a1714; width: 12px; height: 12px; margin: 0; flex-shrink: 0;
+  }
 
   .table-scroll { overflow-x: auto; border: 1px solid #1a1714; }
   table { width: 100%; border-collapse: collapse; background: transparent; table-layout: auto; }
@@ -105,6 +109,60 @@
   td.tag-long  { color: #2f6b3a; }
   td.tag-short { color: #8a2f2a; }
 
+  /* lock state */
+  body.locked td[contenteditable="false"]:not(.num) { cursor: default; }
+  body:not(.locked) #lockBtn { background: #1a1714; color: #f3ead7; }
+  #syncStatus { font-size: 10px; color: #8a7d65; }
+
+  /* modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(26,23,20,0.45);
+    display: none; align-items: flex-start; justify-content: center;
+    z-index: 100; padding-top: 80px; backdrop-filter: blur(2px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #f3ead7; border: 1px solid #1a1714;
+    width: 420px; max-width: calc(100vw - 40px);
+    padding: 22px 24px 18px; box-shadow: 0 10px 40px rgba(26,23,20,0.25);
+  }
+  .modal h2 {
+    margin: 0 0 14px; font-size: 15px; font-weight: 500;
+    letter-spacing: 0.4px; text-transform: uppercase;
+    border-bottom: 1px solid #1a1714; padding-bottom: 8px;
+  }
+  .modal form { display: flex; flex-direction: column; gap: 10px; }
+  .modal label {
+    display: flex; flex-direction: column; gap: 3px;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: #5a4f3d;
+  }
+  .modal input, .modal select, .modal textarea {
+    background: transparent; border: 1px solid #1a1714; color: #1a1714;
+    font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px;
+    padding: 6px 8px; border-radius: 0; outline: none; text-transform: none;
+    letter-spacing: 0;
+  }
+  .modal input:focus, .modal select:focus, .modal textarea:focus {
+    background: #fff8e8;
+  }
+  .modal textarea { resize: vertical; min-height: 50px; font-family: inherit; }
+  .modal .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .modal .actions {
+    display: flex; gap: 8px; justify-content: flex-end;
+    margin-top: 8px; padding-top: 12px; border-top: 1px solid #1a1714;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  .modal .actions button {
+    background: transparent; border: 1px solid #1a1714; color: #1a1714;
+    font-size: 11px; padding: 5px 14px; cursor: pointer; border-radius: 0;
+  }
+  .modal .actions button[type="submit"] { background: #1a1714; color: #f3ead7; }
+  .modal .actions button:hover { opacity: 0.85; }
+  .modal .hint { font-size: 10px; color: #8a7d65; margin: 4px 0 0; font-family: ui-sans-serif, system-ui, sans-serif; text-transform: none; letter-spacing: 0; }
+  .modal .err { color: #8a2f2a; }
+
   footer {
     margin-top: 14px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10px;
     color: #8a7d65; border-top: 1px solid #1a1714; padding-top: 8px;
@@ -120,13 +178,63 @@
   </header>
 
   <div class="toolbar">
+    <button id="addBtn" title="Add a new ticker">+ add row</button>
     <input id="filter" placeholder="filter by ticker, name, industry…" />
-    <button id="colsBtn">columns ▾</button>
-    <div class="colmenu" id="colmenu"></div>
+    <span class="col-wrap">
+      <button id="colsBtn">columns ▾</button>
+      <div class="colmenu" id="colmenu"></div>
+    </span>
     <button id="reload" title="Refresh data">reload</button>
-    <button id="resetEdits" title="Clear all cell edits">reset edits</button>
+    <button id="lockBtn" title="Unlock editing with the shared password">🔒 unlock</button>
     <span style="flex:1"></span>
+    <span id="syncStatus" class="meta" style="margin-right:10px"></span>
     <span id="count"></span>
+  </div>
+
+  <div class="modal-overlay" id="addModal">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h2>Add row</h2>
+      <form id="addForm">
+        <label>Ticker
+          <input name="ticker" autocomplete="off" autocapitalize="characters" required placeholder="e.g. NVDA" />
+        </label>
+        <label>Company
+          <input name="company" autocomplete="off" placeholder="e.g. Nvidia" />
+        </label>
+        <div class="row2">
+          <label>Exchange
+            <input name="exchange" autocomplete="off" placeholder="NASDAQ" />
+          </label>
+          <label>Industry
+            <input name="industry" autocomplete="off" placeholder="AI Accelerators" />
+          </label>
+        </div>
+        <label>Notes
+          <textarea name="notes" placeholder="optional"></textarea>
+        </label>
+        <div class="row2">
+          <label>Buy / Sell
+            <select name="trade">
+              <option value="">—</option>
+              <option value="Buy">Buy</option>
+              <option value="Sell">Sell</option>
+            </select>
+          </label>
+          <label>Short / Long
+            <select name="position">
+              <option value="">—</option>
+              <option value="Long">Long</option>
+              <option value="Short">Short</option>
+            </select>
+          </label>
+        </div>
+        <p class="hint" id="addHint">Ticker is required. % columns will populate automatically.</p>
+        <div class="actions">
+          <button type="button" id="addCancel">cancel</button>
+          <button type="submit" id="addSubmit">add</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <div class="table-scroll">
@@ -215,23 +323,146 @@ const SEED = [
 const STORAGE_KEY = "watchlist_edits_v2";
 const VISKEY = "watchlist_visible_cols_v2";
 const HIST_CACHE_KEY = "watchlist_hist_v1";
+const USER_ROWS_KEY = "watchlist_user_rows_v1";
+
+// hoisted state
+let edits = {};
+let userRows = [];
+let editPassword = localStorage.getItem("edit_password") || "";
+let isUnlocked = false;
+let pendingMigration = null;
+
+function loadUserRows(){
+  try { const a = JSON.parse(localStorage.getItem(USER_ROWS_KEY) || "[]"); return Array.isArray(a) ? a : []; }
+  catch { return []; }
+}
+// userRows / edits now live on the server; we keep an in-memory copy.
+// Pre-existing localStorage entries are queued for migration to the server on first authenticated load.
+function saveUserRows(){ schedulePush(); }
+
+userRows = loadUserRows();
+if (userRows.length){
+  pendingMigration = { ...(pendingMigration || {}), userRows: userRows.slice() };
+}
 
 let rows = SEED.map((r,i) => ({
   id: i, company: r[0], ticker: r[1], exchange: r[2], industry: r[3],
   notes: "", trade: "", position: "",
   d1: null, d5: null, m1: null, m6: null, y1: null,
-  _price: null, loading: true,
+  _price: null, loading: true, _user: false,
 }));
+// append persisted user rows
+for (const u of userRows){
+  rows.push({
+    id: rows.length,
+    company: u.company || "", ticker: (u.ticker || "").toUpperCase(),
+    exchange: u.exchange || "", industry: u.industry || "",
+    notes: u.notes || "", trade: u.trade || "", position: u.position || "",
+    d1: null, d5: null, m1: null, m6: null, y1: null,
+    _price: null, loading: true, _user: true,
+  });
+}
 
-let edits = {};
-try { edits = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch {}
-function saveEdits(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(edits)); } catch {} }
+// pick up any legacy localStorage edits for one-time migration to the server
+{
+  let oldLocal = {};
+  try { oldLocal = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch {}
+  if (oldLocal && Object.keys(oldLocal).length){
+    pendingMigration = { ...(pendingMigration || {}), edits: oldLocal };
+  }
+}
+
 function getEdit(rowId, col){ return edits[rowId+":"+col]; }
 function setEdit(rowId, col, val){
   const key = rowId+":"+col;
   if (val === undefined || val === null || val === "") delete edits[key];
   else edits[key] = val;
-  saveEdits();
+  schedulePush();
+}
+
+let pushTimer = null;
+function schedulePush(){
+  if (!isUnlocked) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushState, 600);
+}
+
+async function pushState(){
+  if (!isUnlocked || !editPassword) return;
+  const syncEl = $("#syncStatus");
+  syncEl.textContent = "saving…";
+  try {
+    const res = await fetch("/api/state", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "x-edit-password": editPassword },
+      body: JSON.stringify({ edits, userRows }),
+    });
+    if (res.status === 401){
+      isUnlocked = false; editPassword = "";
+      localStorage.removeItem("edit_password");
+      updateLockUI();
+      syncEl.textContent = "auth expired";
+      alert("Edit password is wrong or has changed. Click 🔒 unlock again.");
+      return;
+    }
+    if (!res.ok){ syncEl.textContent = "save failed"; console.warn("push failed", res.status); return; }
+    syncEl.textContent = "saved";
+    setTimeout(() => { if (syncEl.textContent === "saved") syncEl.textContent = ""; }, 1500);
+  } catch (e){
+    syncEl.textContent = "offline";
+    console.warn(e);
+  }
+}
+
+async function loadServerState(){
+  try {
+    const res = await fetch("/api/state");
+    if (!res.ok) return;
+    const data = await res.json();
+    edits = (data && data.edits && typeof data.edits === "object") ? data.edits : {};
+    const serverUserRows = Array.isArray(data && data.userRows) ? data.userRows : [];
+    // hydrate userRows from server: rebuild rows array from SEED + server userRows
+    userRows = serverUserRows.slice();
+    rebuildRowsFromSeed();
+  } catch (e){ console.warn("could not load server state", e); }
+}
+
+function rebuildRowsFromSeed(){
+  // strip user rows from `rows`, re-append from current userRows
+  rows = rows.filter(r => !r._user);
+  for (const u of userRows){
+    rows.push({
+      id: rows.length,
+      company: u.company || "", ticker: (u.ticker || "").toUpperCase(),
+      exchange: u.exchange || "", industry: u.industry || "",
+      notes: u.notes || "", trade: u.trade || "", position: u.position || "",
+      d1: null, d5: null, m1: null, m6: null, y1: null,
+      _price: null, loading: true, _user: true,
+    });
+  }
+}
+
+function updateLockUI(){
+  const btn = $("#lockBtn");
+  if (!btn) return;
+  if (isUnlocked){
+    btn.textContent = "🔓 unlocked";
+    btn.title = "Click to lock editing";
+  } else {
+    btn.textContent = "🔒 unlock";
+    btn.title = "Unlock editing with the shared password";
+  }
+  document.body.classList.toggle("locked", !isUnlocked);
+}
+
+async function tryUnlock(pwd){
+  // verify by attempting a no-op PUT of current state
+  const res = await fetch("/api/state", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "x-edit-password": pwd },
+    body: JSON.stringify({ edits, userRows }),
+  });
+  return res.ok;
 }
 
 let visibleCols = new Set(COLUMNS.map(c => c.key));
@@ -331,14 +562,15 @@ function render(){
           if ((raw || "") === opt) o.selected = true;
           sel.appendChild(o);
         }
+        sel.disabled = !isUnlocked;
         sel.addEventListener("change", () => { setEdit(r.id, c.key, sel.value); render(); });
         td.appendChild(sel);
         const v = (raw || "").toLowerCase();
         if (v) td.classList.add("tag-" + v);
       } else if (c.type === "notes"){
-        td.classList.add("notes"); td.contentEditable = "true"; td.textContent = raw || "";
+        td.classList.add("notes"); td.contentEditable = isUnlocked ? "true" : "false"; td.textContent = raw || "";
       } else {
-        td.contentEditable = "true"; td.textContent = raw || "";
+        td.contentEditable = isUnlocked ? "true" : "false"; td.textContent = raw || "";
       }
       if (editedFlag && c.type !== "select" && c.type !== "pct") td.classList.add("edited");
       tr.appendChild(td);
@@ -380,14 +612,144 @@ tbody.addEventListener("keydown", (e) => {
   }
 });
 $("#filter").addEventListener("input", (e) => { filterText = e.target.value; render(); });
-$("#resetEdits").addEventListener("click", () => {
-  if (!confirm("Clear all cell edits (notes, buy/sell, short/long, etc.)?")) return;
-  edits = {}; saveEdits(); render();
-});
 $("#reload").addEventListener("click", () => {
   localStorage.removeItem(HIST_CACHE_KEY);
   location.reload();
 });
+
+// ---- add-row modal ----
+const addModal = $("#addModal");
+const addForm  = $("#addForm");
+const addHint  = $("#addHint");
+function openAddModal(){
+  if (!isUnlocked){
+    alert("Click 🔒 unlock and enter the password before adding rows.");
+    return;
+  }
+  addForm.reset();
+  addHint.textContent = "Ticker is required. % columns will populate automatically.";
+  addHint.classList.remove("err");
+  addModal.classList.add("open");
+  setTimeout(() => addForm.elements.ticker.focus(), 30);
+}
+function closeAddModal(){ addModal.classList.remove("open"); }
+$("#addBtn").addEventListener("click", openAddModal);
+$("#addCancel").addEventListener("click", closeAddModal);
+addModal.addEventListener("click", (e) => { if (e.target === addModal) closeAddModal(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && addModal.classList.contains("open")) closeAddModal();
+});
+
+addForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(addForm);
+  const ticker = String(fd.get("ticker") || "").trim().toUpperCase();
+  if (!ticker){ addHint.textContent = "Ticker is required."; addHint.classList.add("err"); return; }
+
+  // duplicate check
+  if (rows.some(r => (r.ticker || "").toUpperCase() === ticker)){
+    addHint.textContent = `${ticker} is already in the list.`;
+    addHint.classList.add("err"); return;
+  }
+
+  const submitBtn = $("#addSubmit");
+  const data = {
+    ticker,
+    company:  String(fd.get("company")  || "").trim(),
+    exchange: String(fd.get("exchange") || "").trim(),
+    industry: String(fd.get("industry") || "").trim(),
+    notes:    String(fd.get("notes")    || "").trim(),
+    trade:    String(fd.get("trade")    || ""),
+    position: String(fd.get("position") || ""),
+  };
+
+  // if user already pressed "add anyway", skip validation
+  if (addForm.dataset.forced === "1"){
+    submitBtn.disabled = true;
+    await commitNewRow(data, null);
+    addForm.dataset.forced = "";
+    submitBtn.textContent = "add";
+    submitBtn.disabled = false;
+    closeAddModal();
+    return;
+  }
+
+  submitBtn.disabled = true;
+  addHint.classList.remove("err");
+  addHint.textContent = `validating ${ticker}…`;
+
+  let snap = {};
+  try { snap = await fetchSnapshot([ticker]); } catch {}
+  const hit = snap[ticker];
+  if (!hit){
+    addHint.classList.add("err");
+    addHint.textContent = `couldn't find ${ticker} — press again to add anyway.`;
+    submitBtn.textContent = "add anyway";
+    submitBtn.disabled = false;
+    addForm.dataset.forced = "1";
+    return;
+  }
+
+  await commitNewRow(data, hit);
+  submitBtn.textContent = "add";
+  submitBtn.disabled = false;
+  closeAddModal();
+});
+
+// reset "forced" state when user edits the ticker field again
+addForm.elements.ticker.addEventListener("input", () => {
+  if (addForm.dataset.forced === "1"){
+    addForm.dataset.forced = "";
+    $("#addSubmit").textContent = "add";
+    addHint.classList.remove("err");
+    addHint.textContent = "Ticker is required. % columns will populate automatically.";
+  }
+});
+
+async function commitNewRow(data, snapHit){
+  const newRow = {
+    id: rows.length,
+    company: data.company, ticker: data.ticker,
+    exchange: data.exchange, industry: data.industry,
+    notes: data.notes, trade: data.trade, position: data.position,
+    d1: null, d5: null, m1: null, m6: null, y1: null,
+    _price: null, loading: true, _user: true,
+  };
+  if (snapHit){ newRow.d1 = snapHit.d1; newRow._price = snapHit.price; }
+  rows.push(newRow);
+
+  userRows.push({
+    company: data.company, ticker: data.ticker, exchange: data.exchange,
+    industry: data.industry, notes: data.notes, trade: data.trade, position: data.position,
+  });
+  saveUserRows(userRows);
+
+  render();
+
+  // populate historical series
+  try {
+    const bars = await fetchBarsWithRetry(data.ticker, 4);
+    if (bars.length){
+      if (newRow.d1 === null && bars.length >= 2){
+        const last = bars[bars.length-1].c;
+        const prev = bars[bars.length-2].c;
+        if (last && prev) newRow.d1 = ((last - prev) / prev) * 100;
+      }
+      newRow.d5 = pctChangeOverDays(bars, 7);
+      newRow.m1 = pctChangeOverDays(bars, 30);
+      newRow.m6 = pctChangeOverDays(bars, 182);
+      newRow.y1 = pctChangeOverDays(bars, 365);
+      // merge into hist cache so reloads keep the values
+      const cache = loadHistCache();
+      const fresh = (cache.date === todayIso() ? (cache.data || {}) : {});
+      fresh[data.ticker] = { d5: newRow.d5, m1: newRow.m1, m6: newRow.m6, y1: newRow.y1 };
+      saveHistCache({ date: todayIso(), data: fresh });
+    }
+  } catch (e){ console.warn("history fetch failed for new row", e); }
+  newRow.loading = false;
+  render();
+}
+
 
 function buildColMenu(){
   const m = $("#colmenu");
@@ -619,13 +981,60 @@ async function load(){
   render();
 }
 
-buildColMenu();
-render();
-load().catch(e => {
-  console.error(e);
-  dot.classList.remove("loading"); dot.classList.add("err");
-  status.textContent = "error: " + (e.message || e);
+// lock button
+$("#lockBtn").addEventListener("click", async () => {
+  if (isUnlocked){
+    isUnlocked = false; editPassword = "";
+    localStorage.removeItem("edit_password");
+    updateLockUI(); render();
+    return;
+  }
+  const pwd = prompt("Edit password:");
+  if (!pwd) return;
+  const ok = await tryUnlock(pwd);
+  if (ok){
+    editPassword = pwd; isUnlocked = true;
+    localStorage.setItem("edit_password", pwd);
+    updateLockUI();
+    // one-time migration of legacy localStorage data
+    if (pendingMigration){
+      const merged = { edits: { ...edits }, userRows: userRows.slice() };
+      if (pendingMigration.edits) merged.edits = { ...pendingMigration.edits, ...merged.edits };
+      if (pendingMigration.userRows){
+        const existingTickers = new Set(merged.userRows.map(r => (r.ticker || "").toUpperCase()));
+        for (const u of pendingMigration.userRows){
+          if (!existingTickers.has((u.ticker || "").toUpperCase())) merged.userRows.push(u);
+        }
+      }
+      edits = merged.edits; userRows = merged.userRows;
+      rebuildRowsFromSeed();
+      pendingMigration = null;
+      // legacy keys are no longer authoritative
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(USER_ROWS_KEY);
+      await pushState();
+    }
+    render();
+  } else {
+    alert("Wrong password.");
+  }
 });
+
+async function bootstrap(){
+  await loadServerState();
+  // if we have a stored password, optimistically mark unlocked (real verify happens on first write)
+  if (editPassword) isUnlocked = true;
+  updateLockUI();
+  buildColMenu();
+  render();
+  load().catch(e => {
+    console.error(e);
+    dot.classList.remove("loading"); dot.classList.add("err");
+    status.textContent = "error: " + (e.message || e);
+  });
+}
+
+bootstrap();
 </script>
 </body>
 </html>

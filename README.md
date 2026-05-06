@@ -1,51 +1,48 @@
-# Companies — AI Infrastructure Watchlist
+# Watchlist
 
-Editable cream-and-ink spreadsheet of ~50 AI-infrastructure tickers (semis, hyperscalers, ODMs, power, photonics, networking) with 1D / 5D / 1M / 6M / 1Y % changes pulled from massive.com.
+Cream-and-ink editable spreadsheet of AI-infrastructure tickers (semis, hyperscalers, ODMs, power, photonics, networking) with 1D / 5D / 1M / 6M / 1Y % changes pulled from massive.com. Notes, Buy/Sell, and Short/Long are shared across all visitors via Vercel KV; only people with the password can edit.
 
 ## Files
 
 - `index.html` — the static page (UI + client logic)
-- `api/proxy.js` — Vercel serverless function that proxies to massive.com so the API key stays server-side
-- `package.json` / `.gitignore` / `.env.example`
+- `api/proxy.js` — proxies the browser's market-data calls to massive.com (keeps the API key server-side)
+- `api/state.js` — GET/PUT the shared edits + user-added rows in Vercel KV
+- `package.json` / `.env.example` / `.gitignore`
 
 ## Deploy to Vercel
 
-1. **Push these files** to `github.com/linjames0/companies`:
-   ```sh
-   git clone https://github.com/linjames0/companies.git
-   cd companies
-   # copy the contents of this folder into the repo
-   git add .
-   git commit -m "watchlist"
-   git push
-   ```
+1. **Push to GitHub.** Already done.
 
-2. **Import the repo** at [vercel.com/new](https://vercel.com/new) — keep all defaults (no build step).
+2. **Import** the repo at [vercel.com/new](https://vercel.com/new) — accept defaults (no build step).
 
-3. **Set the env var** in Vercel → Project → Settings → Environment Variables:
-   - Name: `MASSIVE_API_KEY`
-   - Value: your massive.com key
-   - (Optional) `MASSIVE_BASE` if your account uses a non-default host
+3. **Add a KV store.** In the Vercel dashboard: Project → **Storage** → **Create Database** → Marketplace → **Upstash for Redis** (or "KV"). Connect it to the project. Vercel injects the connection env vars automatically.
 
-4. **Deploy.** Visit the URL — the page calls `/api/proxy` which forwards to massive with the key attached.
+4. **Set the secrets** in Project → Settings → Environment Variables:
+   - `MASSIVE_API_KEY` — your massive.com key
+   - `EDIT_PASSWORD` — the shared password that unlocks editing
+   - (optional) `MASSIVE_BASE` — override the upstream API host
+
+5. **Redeploy** so the new env vars take effect (Deployments → ⋯ → Redeploy).
+
+Visitors land on a read-only view. To edit, click 🔒 unlock and enter the password — your browser remembers it. Notes, Buy/Sell, Short/Long, and added rows sync to KV and show up for everyone.
 
 ## Local dev
 
 ```sh
 npm i -g vercel
-vercel env add MASSIVE_API_KEY     # paste your key
-vercel dev
+vercel link
+vercel env pull       # pulls MASSIVE_API_KEY, EDIT_PASSWORD, KV_* into .env.local
+vercel dev            # http://localhost:3000
 ```
-
-Then open http://localhost:3000.
 
 ## How it works
 
-- `index.html` renders the table, loads cell edits from `localStorage`, then calls `/api/proxy?path=/v3/snapshot&...` for current prices and `/api/proxy?path=/v2/aggs/ticker/<T>/range/1/day/<from>/<to>` for each ticker's daily history.
-- Per-ticker history is cached in `localStorage` keyed by today's date — same-day reloads are instant; a new day triggers a fresh fetch.
-- The proxy attaches the API key as both `?apiKey=` and `Authorization: Bearer <key>` so it works regardless of which auth scheme the upstream prefers.
+- **Market data** — `/api/proxy?path=/v3/snapshot&...` handles current prices + 1-day change in one batched call; per-ticker daily aggregates fill 5D/1M/6M/1Y. Per-ticker history is cached in `localStorage` keyed by today's date so same-day reloads are instant.
+- **Shared state** — edits and user-added rows live under the `watchlist:state` key in Vercel KV. The page `GET`s `/api/state` on load and debounce-`PUT`s the full state on every edit.
+- **Auth** — `PUT /api/state` requires an `x-edit-password` header. Without it, edits silently revert. The password is set in env, not in code.
 
-## Notes
+## Tweaks
 
-- The proxy adds a CDN cache header (`s-maxage=300`) so repeat hits across users don't burn your rate limit.
-- If your massive plan returns the snapshot in a slightly different JSON shape, `pickSnapshotPctPrice()` in `index.html` already accepts several variants — extend it there if needed.
+- Change the seed list of tickers in the `SEED` array near the top of `<script>` in `index.html`.
+- The `pickSnapshotPctPrice()` helper handles a few variants of the upstream JSON shape — extend if your account returns a different field layout.
+- The proxy adds `s-maxage=300` so repeat hits across users don't burn your rate limit.
