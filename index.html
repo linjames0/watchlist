@@ -269,6 +269,7 @@ const COLUMNS = [
   { key: "m1", label: "1 Month",  type: "pct" },
   { key: "m6", label: "6 Months", type: "pct" },
   { key: "y1", label: "1 Year",   type: "pct" },
+  { key: "marketCap",label: "Market Cap",  type: "money" },
   { key: "pe",       label: "P/E",         type: "ratio" },
   { key: "revGrowth",label: "Rev YoY",     type: "pctSigned" },
   { key: "gross",    label: "Gross Margin",type: "pctPlain" },
@@ -368,7 +369,7 @@ if (userRows.length){
 let rows = SEED.map((r,i) => ({
   id: i, company: r[0], ticker: r[1], exchange: r[2], industry: r[3],
   notes: "", trade: "", position: "",
-  d1: null, d5: null, m1: null, m6: null, y1: null, pe: null, revGrowth: null, gross: null, evEbitda: null, debtEbitda: null, fcfYield: null, fundamentalsLoading: true,
+  d1: null, d5: null, m1: null, m6: null, y1: null, marketCap: null, pe: null, revGrowth: null, gross: null, evEbitda: null, debtEbitda: null, fcfYield: null, fundamentalsLoading: true,
   _price: null, loading: true, _user: false,
 }));
 // append persisted user rows
@@ -378,7 +379,7 @@ for (const u of userRows){
     company: u.company || "", ticker: (u.ticker || "").toUpperCase(),
     exchange: u.exchange || "", industry: u.industry || "",
     notes: u.notes || "", trade: u.trade || "", position: u.position || "",
-    d1: null, d5: null, m1: null, m6: null, y1: null, pe: null, revGrowth: null, gross: null, evEbitda: null, debtEbitda: null, fcfYield: null, fundamentalsLoading: true,
+    d1: null, d5: null, m1: null, m6: null, y1: null, marketCap: null, pe: null, revGrowth: null, gross: null, evEbitda: null, debtEbitda: null, fcfYield: null, fundamentalsLoading: true,
     _price: null, loading: true, _user: true,
   });
 }
@@ -456,7 +457,7 @@ function rebuildRowsFromSeed(){
       company: u.company || "", ticker: (u.ticker || "").toUpperCase(),
       exchange: u.exchange || "", industry: u.industry || "",
       notes: u.notes || "", trade: u.trade || "", position: u.position || "",
-      d1: null, d5: null, m1: null, m6: null, y1: null, pe: null, revGrowth: null, gross: null, evEbitda: null, debtEbitda: null, fcfYield: null, fundamentalsLoading: true,
+      d1: null, d5: null, m1: null, m6: null, y1: null, marketCap: null, pe: null, revGrowth: null, gross: null, evEbitda: null, debtEbitda: null, fcfYield: null, fundamentalsLoading: true,
       _price: null, loading: true, _user: true,
     });
   }
@@ -516,11 +517,19 @@ function fmtRatio(v){
   if (Math.abs(n) >= 1000) return n.toFixed(0);
   return n.toFixed(1);
 }
+// Finnhub returns market cap in millions of USD
+function fmtMoneyMillions(v){
+  if (v === null || v === undefined || isNaN(v)) return "—";
+  const n = Number(v);
+  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(2) + "T";
+  if (n >= 1_000)     return "$" + (n / 1_000).toFixed(1) + "B";
+  return "$" + n.toFixed(0) + "M";
+}
 function pctClass(v){
   if (v === null || v === undefined || isNaN(v)) return "muted";
   if (v > 0) return "up"; if (v < 0) return "down"; return "";
 }
-const NUMERIC_TYPES = new Set(["pct","pctSigned","pctPlain","ratio"]);
+const NUMERIC_TYPES = new Set(["pct","pctSigned","pctPlain","ratio","money"]);
 function isNumericType(t){ return NUMERIC_TYPES.has(t); }
 function getCellValue(row, col){
   const e = getEdit(row.id, col);
@@ -606,6 +615,15 @@ function render(){
         if (r.fundamentalsLoading) { td.textContent = "…"; td.classList.add("muted"); }
         else {
           td.textContent = fmtRatio(raw);
+          if (raw === null || raw === undefined || isNaN(raw)) td.classList.add("muted");
+        }
+      } else if (c.type === "money"){
+        td.classList.add("num", "readonly");
+        td.contentEditable = "false";
+        td.tabIndex = -1;
+        if (r.fundamentalsLoading) { td.textContent = "…"; td.classList.add("muted"); }
+        else {
+          td.textContent = fmtMoneyMillions(raw);
           if (raw === null || raw === undefined || isNaN(raw)) td.classList.add("muted");
         }
       } else if (c.type === "select"){
@@ -766,7 +784,7 @@ async function commitNewRow(data, snapHit){
     company: data.company, ticker: data.ticker,
     exchange: data.exchange, industry: data.industry,
     notes: data.notes, trade: data.trade, position: data.position,
-    d1: null, d5: null, m1: null, m6: null, y1: null, pe: null, revGrowth: null, gross: null, evEbitda: null, debtEbitda: null, fcfYield: null, fundamentalsLoading: true,
+    d1: null, d5: null, m1: null, m6: null, y1: null, marketCap: null, pe: null, revGrowth: null, gross: null, evEbitda: null, debtEbitda: null, fcfYield: null, fundamentalsLoading: true,
     _price: null, loading: true, _user: true,
   };
   if (snapHit){ newRow.d1 = snapHit.d1; newRow._price = snapHit.price; }
@@ -1125,7 +1143,10 @@ function pickFundamentals(metric){
     if (evFcf && evFcf !== 0) fcfYield = (1 / evFcf) * 100; // approximation
   }
 
-  return { pe, revGrowth, gross, evEbitda, debtEbitda, fcfYield };
+  // Market cap (Finnhub returns millions of USD)
+  const marketCap = first("marketCapitalization");
+
+  return { pe, revGrowth, gross, evEbitda, debtEbitda, fcfYield, marketCap };
 }
 
 async function fetchFundamentals(ticker){
