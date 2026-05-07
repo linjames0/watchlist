@@ -567,7 +567,11 @@ function render(){
         td.contentEditable = "false";
         td.tabIndex = -1;
         if (r.loading){ td.textContent = "…"; td.classList.add("muted"); }
-        else { td.textContent = fmtPct(raw); td.classList.add(pctClass(raw)); }
+        else {
+          td.textContent = fmtPct(raw);
+          const cls = pctClass(raw);
+          if (cls) td.classList.add(cls);
+        }
       } else if (c.type === "select"){
         const sel = document.createElement("select");
         for (const opt of c.options){
