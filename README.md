@@ -6,6 +6,7 @@ Cream-and-ink editable spreadsheet of AI-infrastructure tickers (semis, hypersca
 
 - `index.html` — the static page (UI + client logic)
 - `api/proxy.js` — proxies the browser's market-data calls to massive.com (keeps the API key server-side)
+- `api/fundamentals.js` — proxies fundamentals calls to Finnhub (P/E, EV/EBITDA, gross margin, FCF, etc.)
 - `api/state.js` — GET/PUT the shared edits + user-added rows in Vercel KV
 - `package.json` / `.env.example` / `.gitignore`
 
@@ -18,7 +19,8 @@ Cream-and-ink editable spreadsheet of AI-infrastructure tickers (semis, hypersca
 3. **Add a KV store.** In the Vercel dashboard: Project → **Storage** → **Create Database** → Marketplace → **Upstash for Redis** (or "KV"). Connect it to the project. Vercel injects the connection env vars automatically.
 
 4. **Set the secrets** in Project → Settings → Environment Variables:
-   - `MASSIVE_API_KEY` — your massive.com key
+   - `MASSIVE_API_KEY` — your massive.com key (prices + history)
+   - `FINNHUB_API_KEY` — sign up free at [finnhub.io](https://finnhub.io); 60 calls/min covers the watchlist daily
    - `EDIT_PASSWORD` — the shared password that unlocks editing
    - (optional) `MASSIVE_BASE` — override the upstream API host
 
